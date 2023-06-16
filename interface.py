@@ -1,6 +1,7 @@
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
+from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from config import comunity_token, acces_token
 from core import VkTools
 from datetime import datetime
@@ -18,13 +19,17 @@ class BotInterface():
         self.age = 10
         self.db = DataStore(file_db)
 
-    def message_send(self, user_id, message, attachment=None):
-        self.vk.method('messages.send',
-                                {'user_id': user_id,
-                                'message': message,
-                                'attachment': attachment,
-                                'random_id': get_random_id()
-                                })
+    def message_send(self, user_id, message, keyboard=None, attachment=None):
+        
+        query = {
+            'user_id': user_id,
+            'message': message,
+            'attachment': attachment,
+            'random_id': get_random_id()
+            }
+        if keyboard != None:
+            query.update({'keyboard': keyboard.get_keyboard()})
+        self.vk.method('messages.send', query)
 
     def event_handler(self):
         context = 'standart'
@@ -43,9 +48,12 @@ class BotInterface():
                         self.users.clear()
                         self.offset = 0
                         age_pass = False
+                    keyboard = VkKeyboard(one_time=True)
+                    keyboard.add_button('Поиск', VkKeyboardColor.PRIMARY)
+
                     if 'привет' in command:
                         self.message_send(event.user_id, f'Здравствуйте, {self.params["first_name"]}!')
-                        self.message_send(event.user_id, 'Для поиска людей, напишите команду "поиск"!')
+                        self.message_send(event.user_id, 'Чтобы искать людей, нажмите кнопку "Поиск"!', keyboard)
                     elif 'поиск' in command:
                         if self.params['bdate'] is not None and len(self.params['bdate'].split('.')) == 3 or age_pass == True:
                             self.message_send(event.user_id, 'Начинаю поиск...')
@@ -68,7 +76,7 @@ class BotInterface():
                                 if num == 2:
                                     break
                             self.message_send(event.user_id, f'Встречайте {user["first_name"]} @id{user["id"]}', attachment=attachment)
-                            self.message_send(event.user_id, 'Чтобы продолжить поиск людей, снова напишите "поиск"!')
+                            self.message_send(event.user_id, 'Чтобы продолжить искать, снова нажмите кнопку!', keyboard)
                             print(self.users)
                             print(user)
                             print(self.offset)
@@ -84,13 +92,13 @@ class BotInterface():
                         self.message_send(event.user_id, f'До свидания, {self.params["first_name"]}!')
                     else:
                         self.message_send(event.user_id, 'Неизвестная команда!')
-                        self.message_send(event.user_id, 'Для поиска людей, напишите команду "поиск"!')
+                        self.message_send(event.user_id, 'Чтобы искать людей, нажмите кнопку "Поиск"!', keyboard)
                 elif context == 'input_age':
                     if event.text.isdigit():
                         age = int(event.text)
                         if age >= 10 and age <= 100:
                             self.age = age
-                            self.message_send(event.user_id, 'Принято! Чтобы продолжить поиск людей, снова напишите "поиск"!')
+                            self.message_send(event.user_id, 'Принято! Чтобы продолжить искать, снова нажмите кнопку!', keyboard)
                             context = 'standart'
                             age_pass = True
                         else:

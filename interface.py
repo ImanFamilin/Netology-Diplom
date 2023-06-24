@@ -98,7 +98,7 @@ class BotInterface():
                         age = int(event.text)
                         if age >= 10 and age <= 100:
                             self.age = age
-                            self.message_send(event.user_id, 'Принято! Чтобы продолжить искать, снова нажмите кнопку!', keyboard)
+                            self.message_send(event.user_id, 'Принято! Чтобы продолжить искать, нажмите кнопку!', keyboard)
                             context = 'standart'
                             age_pass = True
                         else:

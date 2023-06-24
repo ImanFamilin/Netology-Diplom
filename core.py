@@ -115,6 +115,8 @@ class VkTools():
             return 1
         elif name_city == 'санкт-петербург' or name_city == 'спб':
             return 2
+        elif query['count'] > 1:
+            return 0
 
 if __name__ == '__main__':
     current_time = datetime.now()
@@ -126,8 +128,8 @@ if __name__ == '__main__':
     print(users)
     print(bot.get_city_id('киров', 'кировская область'))
     print(bot.get_city_id('москва'))
-    print(bot.get_city_id('киров-чепецк'))
+    print(bot.get_city_id('кирово-чепецк'))
     print(bot.get_city_id('санкт-петербург'))
     print(bot.get_city_id('краснодар'))
     print(bot.get_city_id('орехово-зуево'))
-    print(bot.get_city_id('мск'))
+    print(bot.get_city_id('славянск на кубани'))

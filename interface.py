@@ -18,6 +18,7 @@ class BotInterface():
         self.offset = 0
         self.age = 0
         self.city_id = None
+        self.city_name = None
         self.db = DataStore(file_db)
 
     def message_send(self, user_id, message, keyboard=None, attachment=None):
@@ -40,9 +41,9 @@ class BotInterface():
         for event in self.longpoll.listen():
             if event.type == VkEventType.MESSAGE_NEW and event.to_me:
                 self.params = self.vk_tools.get_profile_info(event.user_id)
-                # self.params.update({'bdate': '15.09'})
-                # self.params.update({'bdate': None})
-                self.params.update({'city_id': None})
+                # self.params.update({'bdate': '15.09'})    # ДЛЯ ПРОВЕРКИ ЛОГИКИ ЗАПРОСА ВОЗРАСТА
+                # self.params.update({'bdate': None})       # ДЛЯ ПРОВЕРКИ ЛОГИКИ ЗАПРОСА ВОЗРАСТА
+                # self.params.update({'city_id': None})     # ДЛЯ ПРОВЕРКИ ЛОГИКИ ЗАПРОСА ГОРОДА
                 current_time = datetime.now()
                 print(f'{current_time} id{self.params.get("id")} {self.params.get("first_name")} {self.params.get("last_name")} {event.text}')
                 command = event.text.lower().split()
@@ -55,6 +56,7 @@ class BotInterface():
                         age_pass = False
                         city_id_pass = False
                         self.city_id = None
+                        self.city_name = None
                     if 'привет' in command:
                         self.message_send(event.user_id, f'Здравствуйте, {self.params["first_name"]}!')
                         self.message_send(event.user_id, 'Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
@@ -70,18 +72,25 @@ class BotInterface():
                             context = 'input_age'
                         elif self.params['city_id'] is None:
                             self.message_send(event.user_id, f'''{self.params["first_name"]}, я не нашел информации о вашем городе!
-                            Напишите название вашего города (пока только Россия) и через запятую регион для точности (необязательно)''')
+                            Напишите название вашего города (только Россия) и через запятую регион для точности (необязательно)''')
                             context = 'input_city'
                         else:
                             self.message_send(event.user_id, 'Начинаю поиск...')
                             if len(self.users) == 0:
                                 self.users = self.vk_tools.search_users(self.params, offset=self.offset)
+                                if self.users == []:
+                                    self.message_send(event.user_id, 'Кончились анкеты в текущем городе... Выберите другой!')
+                                    context = 'input_city'
+                                    continue
                                 self.offset += 10
                             if len(self.users) > 0:
                                 user = self.users.pop()
-                            while self.db.check_data(user['id'], event.user_id) is not None:
+                            
+                            while self.db.check_data(user['id'], event.user_id) is not None: # ПРОВЕРКА В БД
                                 if len(self.users) == 0:
                                     self.users = self.vk_tools.search_users(self.params, offset=self.offset)
+                                    if self.users == []:
+                                        break
                                     self.offset += 10
                                 if len(self.users) > 0:
                                     user = self.users.pop()
@@ -96,7 +105,9 @@ class BotInterface():
                             print(self.users)
                             print(user)
                             print(self.offset)
-                            self.db.add_data(user['id'], event.user_id)
+                            print(attachment)
+                            
+                            self.db.add_data(user['id'], event.user_id) # ЗАПИСЬ В БД
 
                         last_writer = self.params.get('id')
                     elif 'пока' in command:
@@ -109,6 +120,7 @@ class BotInterface():
                         self.city_id = None
                         age_pass = False
                         city_id_pass = False
+                        self.city_name = None
                         self.message_send(event.user_id, 'Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
                     else:
                         self.message_send(event.user_id, 'Неизвестная команда! Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
@@ -125,31 +137,44 @@ class BotInterface():
                     else:
                         self.message_send(event.user_id, 'Неверные данные. Повторите отправку!')
                 elif context == 'input_city':
-                    location = event.text.split(',')
-                    if len(location) == 2:
-                        name_city = location[0].strip().lower()
-                        name_reg = location[1].strip().lower()
+                    input_city = event.text.split(',')
+                    if len(input_city) == 2:
+                        name_city = input_city[0].strip().lower()
+                        name_reg = input_city[1].strip().lower()
                         self.city_id = self.vk_tools.get_city_id(name_city, name_reg)
                         if self.city_id is not None:
-                            self.message_send(event.user_id, 'Город найден! Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
+                            self.message_send(event.user_id, 'Город и регион найдены! Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
                             print(self.city_id)
                             context = 'standart'
                             city_id_pass = True
                         else:
                             self.message_send(event.user_id, 'Ошибка в названии города или региона. Повторите отправку!')
-                    elif len(location) == 1:
-                        name_city = location[0].strip().lower()
+                    elif len(input_city) == 1:
+                        name_city = input_city[0].strip().lower()
                         self.city_id = self.vk_tools.get_city_id(name_city)
-                        if self.city_id is not None:
+                        if self.city_id is not None and self.city_id > 0:
                             self.message_send(event.user_id, 'Город найден! Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
                             print(self.city_id)
                             context = 'standart'
                             city_id_pass = True
-                        else:
-                            self.message_send(event.user_id, 'Ошибка в названии города или найдено несколько вариантов. Повторите отправку или укажите регион!')
+                        if self.city_id is not None and self.city_id == 0:
+                            self.city_name = name_city
+                            self.message_send(event.user_id, f'Найдено несколько вариантов по запросу "{name_city}". Укажите ваш регион!')
+                            context = 'input_region'
+                        if self.city_id is None:
+                            self.message_send(event.user_id, 'Ошибка в названии города или региона. Повторите отправку!')
                     else:
-                        self.message_send(event.user_id, 'Пишите либо одно название города либо город и через запятую регион. Москва и СПб без региона!')
-                    
+                        self.message_send(event.user_id, 'Пишите либо одно название города либо город и через запятую регион!')
+                elif context == 'input_region':
+                    input_region = event.text.strip().lower()
+                    self.city_id = self.vk_tools.get_city_id(self.city_name, input_region)
+                    if self.city_id is not None:
+                        self.message_send(event.user_id, 'Регион найден! Чтобы искать людей, нажмите кнопку "Поиск"!', key_search)
+                        print(self.city_id)
+                        context = 'standart'
+                        city_id_pass = True
+                    else:
+                        self.message_send(event.user_id, 'Ошибка в названии региона. Повторите отправку!')
 
 
 if __name__ == '__main__':

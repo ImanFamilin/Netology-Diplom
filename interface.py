@@ -1,4 +1,5 @@
 import vk_api
+import time
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -81,6 +82,7 @@ class BotInterface():
                                 if self.users == []:
                                     self.message_send(event.user_id, 'Кончились анкеты в текущем городе... Выберите другой!')
                                     context = 'input_city'
+                                    self.offset = 0
                                     continue
                                 self.offset += 10
                             if len(self.users) > 0:
@@ -178,7 +180,13 @@ class BotInterface():
 
 
 if __name__ == '__main__':
-    current_time = datetime.now()
-    print(current_time)
-    bot = BotInterface(comunity_token, acces_token)
-    bot.event_handler()
+    while True:
+        try:
+            current_time = datetime.now()
+            print(current_time)
+            bot = BotInterface(comunity_token, acces_token)
+            bot.event_handler()
+        except Exception as e:
+            time.sleep(5)
+            print(e)
+    
